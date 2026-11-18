@@ -1,0 +1,14 @@
+# environment
+.venv/
+__pycache__/
+
+# data and model weights: large and with their own licenses (see DATA.md)
+data/
+models/
+*.pt
+*.onnx
+*.engine
+
+# ultralytics outputs and the sample image it downloads into the root
+runs/
+/bus.jpg
