@@ -1,0 +1,14 @@
+frame,time_s,class,direction
+802,26.73,car,away_from_camera
+860,28.67,car,away_from_camera
+963,32.1,car,toward_camera
+970,32.33,car,toward_camera
+1027,34.23,car,toward_camera
+1034,34.47,car,toward_camera
+1150,38.33,car,away_from_camera
+1164,38.8,car,toward_camera
+1183,39.43,car,toward_camera
+1213,40.43,car,toward_camera
+1274,42.47,truck,toward_camera
+1313,43.77,car,away_from_camera
+1415,47.17,car,toward_camera

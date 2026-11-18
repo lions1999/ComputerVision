@@ -39,6 +39,8 @@ def main():
     # low on purpose: ByteTrack's second pass needs weak detections; its own yaml thresholds do the filtering
     p.add_argument("--conf", type=float, default=0.1)
     p.add_argument("--tracker", default="configs/bytetrack.yaml")
+    p.add_argument("--start", type=float, default=0, help="seconds")
+    p.add_argument("--end", type=float, default=None, help="seconds")
     a = p.parse_args()
 
     scene = json.loads(Path(a.scene).read_text())
@@ -56,8 +58,13 @@ def main():
 
     frame_times, speeds, n_dets, crossings = [], [], [], []
     track_len = Counter()  # track id -> number of frames it was seen in
-    frame_idx = 0
-    while True:
+    # read-and-discard rather than seeking (seeking can land on the wrong frame); indices stay absolute,
+    # so they line up with annotate.py's ground truth
+    frame_idx = round(a.start * fps)
+    for _ in range(frame_idx):
+        cap.grab()
+    end_frame = round(a.end * fps) if a.end is not None else None
+    while end_frame is None or frame_idx < end_frame:
         t0 = time.perf_counter()
         ok, frame = cap.read()  # frame: numpy array (h, w, 3), uint8, BGR
         if not ok:
