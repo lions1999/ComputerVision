@@ -10,12 +10,14 @@ def load(path):
 
 
 def match(gt, pred, tol):
-    """One-to-one pairs (i_gt, j_pred): same direction, |dt| <= tol seconds, closest pairs first.
+    """One-to-one pairs (i_gt, j_pred): same direction, |dt| <= tol seconds; same-class pairs first, then closest.
+    Class goes first because the ground truth has no position: two vehicles crossing in different lanes a frame
+    apart are ambiguous by time alone, and a time-only match swapped a car and a truck.
     shortcut: greedy, not globally optimal; fine while same-direction crossings are further apart than tol."""
-    cand = sorted((abs(g["t"] - p["t"]), i, j) for i, g in enumerate(gt) for j, p in enumerate(pred)
-                  if g["dir"] == p["dir"] and abs(g["t"] - p["t"]) <= tol)
+    cand = sorted((g["cls"] != p["cls"], abs(g["t"] - p["t"]), i, j) for i, g in enumerate(gt)
+                  for j, p in enumerate(pred) if g["dir"] == p["dir"] and abs(g["t"] - p["t"]) <= tol)
     used_g, used_p, pairs = set(), set(), []
-    for _, i, j in cand:
+    for _, _, i, j in cand:
         if i not in used_g and j not in used_p:
             used_g.add(i)
             used_p.add(j)

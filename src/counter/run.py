@@ -41,6 +41,8 @@ def main():
     p.add_argument("--tracker", default="configs/bytetrack.yaml")
     p.add_argument("--start", type=float, default=0, help="seconds")
     p.add_argument("--end", type=float, default=None, help="seconds")
+    p.add_argument("--device", default="0", help="0 = first GPU, cpu")
+    p.add_argument("--no-video", action="store_true", help="CSV only, like a deployed counter: no drawing, no encoding")
     a = p.parse_args()
 
     scene = json.loads(Path(a.scene).read_text())
@@ -53,8 +55,8 @@ def main():
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    writer = cv2.VideoWriter(a.out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-    model = YOLO(a.model)
+    writer = None if a.no_video else cv2.VideoWriter(a.out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    model = YOLO(a.model, task="detect")  # exported files (.onnx/.engine) need the task spelled out
 
     frame_times, speeds, n_dets, crossings = [], [], [], []
     track_len = Counter()  # track id -> number of frames it was seen in
@@ -73,7 +75,7 @@ def main():
         # agnostic_nms: one box per object across classes; per-class NMS kept "truck" + "bus" boxes
         # on the same lorry, and the tracker turned the extra box into a second id (double count).
         r = model.track(frame, persist=True, tracker=a.tracker, imgsz=a.imgsz, conf=a.conf,
-                        classes=VEHICLES, agnostic_nms=True, device=0, verbose=False)[0]
+                        classes=VEHICLES, agnostic_nms=True, device=a.device, verbose=False)[0]
         if r.boxes.id is not None:  # None when no box is matched to a track in this frame
             ids = r.boxes.id.int().tolist()
             track_len.update(ids)
@@ -83,16 +85,18 @@ def main():
                 if event:
                     crossings.append((frame_idx, round(frame_idx / fps, 2), tid, event[1], event[0]))
         # thin boxes, short labels ("id:7 car"), one colour per track so each car is easy to follow
-        img = r.plot(line_width=1, conf=False, color_mode="instance")
-        draw_counts(img, counter, scene["line"])
-        writer.write(img)
+        if writer:
+            img = r.plot(line_width=1, conf=False, color_mode="instance")
+            draw_counts(img, counter, scene["line"])
+            writer.write(img)
         frame_times.append(time.perf_counter() - t0)
         speeds.append(r.speed)  # ms: preprocess / inference / postprocess
         n_dets.append(len(r.boxes))
         frame_idx += 1
 
     cap.release()
-    writer.release()
+    if writer:
+        writer.release()
 
     csv_path = Path(a.out).with_suffix(".csv")
     with open(csv_path, "w", newline="") as f:
@@ -116,7 +120,7 @@ def main():
     for d in counter.directions:
         by_cls = {c: n for (dd, c), n in sorted(counter.counts.items()) if dd == d}
         print(f"count {d}: {sum(by_cls.values())}  {by_cls}")
-    print(f"saved: {a.out}, {csv_path}")
+    print(f"saved: {csv_path}" if a.no_video else f"saved: {a.out}, {csv_path}")
 
 
 if __name__ == "__main__":
